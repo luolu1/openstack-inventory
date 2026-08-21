@@ -6,10 +6,10 @@ services:
     environment:
       APP_HOST: 0.0.0.0
       APP_PORT: 8000
-      OPENSTACK_OPENRC: /run/secrets/admin-openrc.sh
+      OPENSTACK_PLATFORMS_FILE: /etc/openstack-inventory/platforms.json
       OPENSTACK_REGION_NAME: "${OPENSTACK_REGION_NAME:-}"
     volumes:
-      - "${OPENSTACK_OPENRC_HOST_PATH:-/dev/null}:/run/secrets/admin-openrc.sh:ro"
+      - "${OPENSTACK_CONFIG_DIR:-/dev/null}:/etc/openstack-inventory:ro"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]

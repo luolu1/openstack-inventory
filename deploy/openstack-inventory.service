@@ -8,7 +8,7 @@ Type=simple
 WorkingDirectory=/opt/openstack-inventory
 Environment=APP_HOST=127.0.0.1
 Environment=APP_PORT=8000
-Environment=OPENSTACK_OPENRC=/etc/kolla/admin-openrc.sh
+Environment=OPENSTACK_PLATFORMS_FILE=/etc/openstack-inventory/platforms.json
 ExecStart=/opt/openstack-inventory/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 RestartSec=5

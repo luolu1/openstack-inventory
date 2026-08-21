@@ -1,0 +1,17 @@
+{
+  "platforms": [
+    {
+      "id": "prod",
+      "name": "生产集群",
+      "description": "华东生产环境 Kolla-Ansible 集群",
+      "openrc": "/etc/openstack-inventory/prod-admin-openrc.sh"
+    },
+    {
+      "id": "test",
+      "name": "测试集群",
+      "description": "预发布验证环境",
+      "openrc": "/etc/openstack-inventory/test-admin-openrc.sh",
+      "region_name": "RegionOne"
+    }
+  ]
+}
