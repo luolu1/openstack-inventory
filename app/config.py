@@ -5,7 +5,8 @@ from pathlib import Path
 
 @dataclass(frozen=True, slots=True)
 class Settings:
-    openrc_path: Path | None
+    platforms_path: Path | None
+    legacy_openrc_path: Path | None
     region_name: str | None
     host: str
     port: int
@@ -14,9 +15,11 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    openrc = os.environ.get("OPENSTACK_OPENRC", "").strip()
+    platforms = os.environ.get("OPENSTACK_PLATFORMS_FILE", "").strip()
+    legacy = os.environ.get("OPENSTACK_OPENRC", "").strip()
     return Settings(
-        openrc_path=Path(openrc) if openrc else None,
+        platforms_path=Path(platforms) if platforms else None,
+        legacy_openrc_path=Path(legacy) if legacy else None,
         region_name=os.environ.get("OPENSTACK_REGION_NAME") or None,
         host=os.environ.get("APP_HOST", "127.0.0.1"),
         port=int(os.environ.get("APP_PORT", "8000")),
