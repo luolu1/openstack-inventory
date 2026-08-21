@@ -1,0 +1,18 @@
+services:
+  openstack-inventory:
+    build: .
+    ports:
+      - "${INVENTORY_PORT:-8000}:8000"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      OPENSTACK_OPENRC: /run/secrets/admin-openrc.sh
+      OPENSTACK_REGION_NAME: "${OPENSTACK_REGION_NAME:-}"
+    volumes:
+      - "${OPENSTACK_OPENRC_HOST_PATH:-/dev/null}:/run/secrets/admin-openrc.sh:ro"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
