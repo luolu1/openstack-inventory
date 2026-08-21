@@ -1,0 +1,22 @@
+[Unit]
+Description=OpenStack Inventory read-only portal
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/openstack-inventory
+Environment=APP_HOST=127.0.0.1
+Environment=APP_PORT=8000
+Environment=OPENSTACK_OPENRC=/etc/kolla/admin-openrc.sh
+ExecStart=/opt/openstack-inventory/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/openstack-inventory
+
+[Install]
+WantedBy=multi-user.target
