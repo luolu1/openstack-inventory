@@ -11,11 +11,15 @@ from keystoneauth1.exceptions import AuthorizationFailure, EndpointNotFound, Mis
 from app.auth import load_openrc
 from app.config import Settings, load_settings
 from app.inventory import collect_inventory
+from app.labels import local_time, resource_label, status_label
 from app.models import Category, Inventory
 
 BASE_DIR = Path(__file__).parent
 settings: Settings = load_settings()
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.filters["status_label"] = status_label
+templates.env.filters["resource_label"] = resource_label
+templates.env.filters["local_time"] = local_time
 app = FastAPI(title="OpenStack Inventory", version="0.1.0")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 _cached: tuple[float, Inventory] | None = None
@@ -43,21 +47,21 @@ def snapshot() -> Inventory:
             )
             inventory = Inventory("ok", auth.message, collect_inventory(connection, settings.object_limit))
         except (AuthorizationFailure, EndpointNotFound, MissingRequiredOptions, OSError, RuntimeError, ValueError):
-            inventory = Inventory("unavailable", "OpenStack authentication or discovery failed safely.", unavailable_categories())
+            inventory = Inventory("unavailable", "OpenStack 认证或服务发现失败，已安全降级。", unavailable_categories())
     _cached = (now, inventory)
     return inventory
 
 
 def not_configured_categories() -> list[Category]:
-    return [Category(key, title, "not_configured", "Credentials are required to query this service.", "auth_missing") for key, title in category_names()]
+    return [Category(key, title, "not_configured", "需要配置 OpenStack 凭据后才能读取该服务。", "auth_missing") for key, title in category_names()]
 
 
 def unavailable_categories() -> list[Category]:
-    return [Category(key, title, "unavailable", "The service could not be queried.", "connection_failed") for key, title in category_names()]
+    return [Category(key, title, "unavailable", "该服务当前无法查询。", "connection_failed") for key, title in category_names()]
 
 
 def category_names() -> list[tuple[str, str]]:
-    return [("compute", "Compute"), ("network", "Network"), ("block_storage", "Block Storage"), ("object_storage", "Object Storage")]
+    return [("compute", "计算"), ("network", "网络"), ("block_storage", "块存储"), ("object_storage", "对象存储")]
 
 
 def auth_options(environment: dict[str, str]) -> dict[str, str]:
@@ -90,7 +94,7 @@ def api_category(category: str) -> dict[str, Any]:
     for item in snapshot().categories:
         if item.key == category:
             return item.as_dict()
-    raise HTTPException(status_code=404, detail="Unknown inventory category.")
+    raise HTTPException(status_code=404, detail="资源分类不存在。")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -104,5 +108,5 @@ def category_page(request: Request, category: str) -> HTMLResponse:
     inventory = snapshot()
     selected = next((item.as_dict() for item in inventory.categories if item.key == category), None)
     if selected is None:
-        selected = {"key": category, "title": "Unknown category", "status": "not_found", "message": "Unknown inventory category.", "resources": [], "counts": {"resources": 0}}
+        selected = {"key": category, "title": "未知分类", "status": "not_found", "message": "资源分类不存在。", "resources": [], "counts": {"resources": 0}}
     return templates.TemplateResponse(request=request, name="category.html", context={"category": selected})
