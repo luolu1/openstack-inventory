@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ category.title }} · OpenStack Inventory{% endblock %}
+{% block title %}{{ category.title }} · OpenStack 资源清单{% endblock %}
 {% block content %}
 <a class="back" href="/">← 返回总览</a>
-<section class="intro compact"><div><p class="eyebrow">RESOURCE CATEGORY</p><h1>{{ category.title }}</h1><p class="lede">{{ category.message or '当前服务域中的只读资源明细。' }}</p></div><div class="stamp"><span>状态</span><strong class="status-{{ category.status }}">{{ category.status }}</strong></div></section>
+<section class="intro compact"><div><p class="eyebrow">资源分类</p><h1>{{ category.title }}</h1><p class="lede">{{ category.message or '当前服务域中的只读资源明细。' }}</p></div><div class="stamp"><span>状态</span><strong class="status-{{ category.status }}">{{ category.status | status_label }}</strong></div></section>
 {% if category.resources %}
 <div class="table-wrap"><table><thead><tr><th>类型</th><th>名称</th><th>ID</th><th>详情</th></tr></thead><tbody>
-{% for resource in category.resources %}<tr><td><span class="type-dot"></span>{{ resource.type }}</td><td>{{ resource.name }}</td><td class="mono">{{ resource.id }}</td><td><details><summary>展开</summary><pre>{{ resource.details | tojson(indent=2) }}</pre></details></td></tr>{% endfor %}
+{% for resource in category.resources %}<tr><td><span class="type-dot"></span>{{ resource.type | resource_label }}</td><td>{{ resource.name }}</td><td class="mono">{{ resource.id }}</td><td><details><summary>展开</summary><pre>{{ resource.details | tojson(indent=2) }}</pre></details></td></tr>{% endfor %}
 </tbody></table></div>
-{% else %}<div class="empty"><strong>暂无可显示资源</strong><p>状态为 <b>{{ category.status }}</b>。如果服务不可用，这不代表服务中没有资源。</p></div>{% endif %}
+{% else %}<div class="empty"><strong>暂无可显示资源</strong><p>当前状态为 <b>{{ category.status | status_label }}</b>。如果服务不可用，这不代表服务中没有资源。</p></div>{% endif %}
 {% endblock %}
