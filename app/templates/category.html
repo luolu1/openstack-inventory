@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ category.title }} · OpenStack 资源清单{% endblock %}
+{% block title %}{{ platform.name }} · {{ category.title }} · OpenStack 资源清单{% endblock %}
 {% block content %}
-<a class="back" href="/">← 返回总览</a>
-<section class="intro compact"><div><p class="eyebrow">资源分类</p><h1>{{ category.title }}</h1><p class="lede">{{ category.message or '当前服务域中的只读资源明细。' }}</p></div><div class="stamp"><span>状态</span><strong class="status-{{ category.status }}">{{ category.status | status_label }}</strong></div></section>
+<a class="back" href="/platforms/{{ platform.id }}">← 返回 {{ platform.name }}</a>
+<section class="intro compact"><div><p class="eyebrow">{{ platform.name }} / 资源分类</p><h1>{{ category.title }}</h1><p class="lede">{{ category.message or '当前服务域中的只读资源明细。' }}</p></div><div class="stamp"><span>状态</span><strong class="status-{{ category.status }}">{{ category.status | status_label }}</strong></div></section>
 {% if category.resources %}
 <div class="table-wrap"><table><thead><tr><th>类型</th><th>名称</th><th>ID</th><th>详情</th></tr></thead><tbody>
 {% for resource in category.resources %}<tr><td><span class="type-dot"></span>{{ resource.type | resource_label }}</td><td>{{ resource.name }}</td><td class="mono">{{ resource.id }}</td><td><details><summary>展开</summary><pre>{{ resource.details | tojson(indent=2) }}</pre></details></td></tr>{% endfor %}

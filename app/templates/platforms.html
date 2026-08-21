@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}平台列表 · OpenStack 资源清单{% endblock %}
+{% block content %}
+<section class="intro">
+  <div><p class="eyebrow">多平台入口</p><h1>OpenStack 平台列表</h1><p class="lede">每个平台使用各自的 admin-openrc.sh 认证文件，进入平台后读取该集群的计算、网络与存储资源。</p></div>
+  <div class="stamp"><span>清单状态</span><strong class="status-{{ catalog_status }}">{{ catalog_status | status_label }}</strong></div>
+</section>
+{% if platforms %}
+<section class="category-grid">
+{% for platform in platforms %}
+  <a class="category-card" href="/platforms/{{ platform.id }}">
+    <div class="card-head"><span class="service-mark">{{ loop.index }}</span><span class="pill status-ok">可查询</span></div>
+    <h2>{{ platform.name }}</h2><span class="label mono">{{ platform.id }}</span>
+    <p>{{ platform.description or '进入后按需读取该平台的资源快照。' }}</p><span class="arrow">进入平台 <b>↗</b></span>
+  </a>
+{% endfor %}
+</section>
+{% else %}
+<div class="empty"><strong>暂无可用平台</strong><p>{{ catalog_message }}</p></div>
+{% endif %}
+<section class="notice"><span class="notice-dot"></span><div><strong>只读模式</strong><p>本应用不会创建、删除、更新、重启或下载任何 OpenStack 资源。各平台的 OpenRC 内容只在服务端短时加载，永不返回浏览器。</p></div></section>
+{% endblock %}
