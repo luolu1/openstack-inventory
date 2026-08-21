@@ -1,10 +1,60 @@
 # OpenStack Inventory
 
-一个只读的 OpenStack 资源门户，直接使用 `openstacksdk` 查询 Keystone 目录中的 Compute、Network、Block Storage 和 Object Storage。它不依赖 `openstack` CLI，不把 OpenRC 内容返回浏览器，也不提供任何资源变更接口。
+一个只读的多平台 OpenStack 资源门户，直接使用 `openstacksdk` 查询 Keystone 目录中的计算、网络、块存储和对象存储。它不依赖 `openstack` CLI，不把 OpenRC 内容返回浏览器，也不提供任何资源变更接口。
+
+## 多平台认证配置
+
+平台清单是一个 JSON 文件，每个平台对应自己的 `admin-openrc.sh`：
+
+```json
+{
+  "platforms": [
+    {
+      "id": "prod",
+      "name": "生产集群",
+      "description": "华东生产环境 Kolla-Ansible 集群",
+      "openrc": "/etc/openstack-inventory/prod-admin-openrc.sh"
+    },
+    {
+      "id": "test",
+      "name": "测试集群",
+      "openrc": "/etc/openstack-inventory/test-admin-openrc.sh",
+      "region_name": "RegionOne"
+    }
+  ]
+}
+```
+
+字段说明：
+
+- `id`：必填，URL 中使用的平台标识，不能重复。
+- `openrc`：必填，该平台 `admin-openrc.sh` 的路径。相对路径按 JSON 文件所在目录解析。
+- `name`：可选，页面展示名称，默认取 `id`。
+- `region_name`：可选，覆盖该平台的 region。
+- `description`：可选，平台列表页的说明文字。
+
+顶层也可以直接写数组，省略 `platforms` 键。
+
+准备配置目录：
+
+```bash
+sudo mkdir -p /etc/openstack-inventory
+sudo cp platforms.example.json /etc/openstack-inventory/platforms.json
+sudo cp /实际路径/prod-admin-openrc.sh /etc/openstack-inventory/
+sudo cp /实际路径/test-admin-openrc.sh /etc/openstack-inventory/
+sudo chmod 600 /etc/openstack-inventory/*-admin-openrc.sh
+sudo chmod 640 /etc/openstack-inventory/platforms.json
+```
+
+然后编辑 `/etc/openstack-inventory/platforms.json`，填入实际平台和 OpenRC 路径。
+
+清单文件和 OpenRC 都不要提交到 Git。
+
+单平台场景可以继续只设置 `OPENSTACK_OPENRC`，此时会自动生成一个 id 为 `default` 的平台。
 
 ## 从 GitHub SSH 部署
 
-测试机器需要满足：Linux、Python 3.11+、`uv`，或者 Docker Engine 和 `docker-compose`。机器必须能访问 OpenStack API，并且 `admin-openrc.sh` 位于测试机上，或者能通过只读挂载提供给容器。
+测试机器需要满足：Linux、Python 3.11+、`uv`，或者 Docker Engine 和 `docker-compose`。机器必须能访问各平台的 OpenStack API。
 
 首次部署：
 
@@ -22,47 +72,64 @@ cd /opt/openstack-inventory
 git pull --ff-only origin main
 ```
 
-不要把 `admin-openrc.sh`、`.env` 或包含密码的文件提交到 Git。推荐将 OpenRC 放在仓库目录之外，并限制为 root 可读：
-
-```bash
-sudo chmod 600 /实际路径/admin-openrc.sh
-```
-
 ## 原生 Python 部署
 
 ```bash
 cd /opt/openstack-inventory
 uv venv .venv
 uv pip install --python .venv/bin/python -r requirements-dev.txt
-export OPENSTACK_OPENRC=/实际路径/admin-openrc.sh
+export OPENSTACK_PLATFORMS_FILE=/etc/openstack-inventory/platforms.json
 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-浏览器访问 `http://测试机地址:8000/`。接口包括 `/health`、`/api/inventory` 和 `/api/inventory/{category}`。
+浏览器访问 `http://测试机地址:8000/`，首页是平台列表，点进平台再看资源明细。
 
-启动前可先验证凭据文件和 OpenStack API：
+页面路径：
 
-```bash
-test -r "$OPENSTACK_OPENRC"
-bash -n "$OPENSTACK_OPENRC"
+```text
+/                                  平台列表
+/platforms/{平台id}                 平台资源总览
+/platforms/{平台id}/compute         计算资源明细
+/platforms/{平台id}/network         网络资源明细
+/platforms/{平台id}/block_storage   块存储明细
+/platforms/{平台id}/object_storage  对象存储明细
 ```
 
-应用本身不会要求 `openstack` CLI。首次连接真实集群时，建议先在同一台机器执行：
+JSON 接口：
+
+```text
+/health
+/api/platforms
+/api/platforms/{平台id}/inventory
+/api/platforms/{平台id}/inventory/{分类}
+```
+
+启动前可先验证清单和凭据：
 
 ```bash
-. "$OPENSTACK_OPENRC"
+python3 -m json.tool /etc/openstack-inventory/platforms.json > /dev/null
+test -r /etc/openstack-inventory/prod-admin-openrc.sh
+bash -n /etc/openstack-inventory/prod-admin-openrc.sh
+```
+
+启动后检查：
+
+```bash
 curl -fsS http://127.0.0.1:8000/health
-curl -fsS http://127.0.0.1:8000/api/inventory
+curl -fsS http://127.0.0.1:8000/api/platforms
+curl -fsS http://127.0.0.1:8000/api/platforms/prod/inventory
 ```
 
 ## Docker
 
-不要把凭据写进镜像。启动前指定宿主机 OpenRC 路径：
+不要把凭据写进镜像。把清单和所有 OpenRC 放在同一个目录，只读挂载进容器：
 
 ```bash
-export OPENSTACK_OPENRC_HOST_PATH=/实际路径/admin-openrc.sh
+export OPENSTACK_CONFIG_DIR=/etc/openstack-inventory
 docker-compose up -d --build
 ```
+
+容器内固定读取 `/etc/openstack-inventory/platforms.json`，因此清单里的 `openrc` 路径应写成容器内路径，例如 `/etc/openstack-inventory/prod-admin-openrc.sh`，或使用相对路径 `prod-admin-openrc.sh`。
 
 Compose 默认发布宿主机 `8000` 端口，可以通过 `INVENTORY_PORT` 修改：
 
@@ -70,7 +137,7 @@ Compose 默认发布宿主机 `8000` 端口，可以通过 `INVENTORY_PORT` 修�
 INVENTORY_PORT=18000 docker-compose up -d --build
 ```
 
-OpenRC 在容器内固定映射为 `/run/secrets/admin-openrc.sh`，挂载为只读。不要使用 Docker socket、特权模式或 host network。
+不要使用 Docker socket、特权模式或 host network。
 
 检查容器：
 
@@ -82,8 +149,6 @@ docker-compose logs --no-color --tail=100
 
 ## systemd 部署
 
-需要 root 管理服务时，可使用仓库提供的模板：
-
 ```bash
 sudo cp deploy/openstack-inventory.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -91,23 +156,31 @@ sudo systemctl enable --now openstack-inventory
 sudo systemctl status openstack-inventory
 ```
 
-启动前编辑 service 中的 `OPENSTACK_OPENRC`，并确认 `WorkingDirectory` 与 `ExecStart` 指向实际 clone 路径。默认服务只监听 `127.0.0.1:8000`；若要让其他机器访问，应在前置 Nginx 或受控防火墙后暴露，而不是直接暴露 admin 权限服务。
+启动前确认 service 中的 `OPENSTACK_PLATFORMS_FILE`、`WorkingDirectory` 与 `ExecStart` 指向实际路径。默认服务只监听 `127.0.0.1:8000`；若要让其他机器访问，应在前置 Nginx 或受控防火墙后暴露，而不是直接暴露 admin 权限服务。
 
-如果 Swift 未部署或当前策略不允许访问，Object Storage 会显示为 unavailable；其他服务仍会正常展示。管理员 OpenRC 也不保证每个项目资源都能跨项目列出，实际结果以 Keystone/服务策略为准。
+## 状态含义
+
+每个平台的每个服务域独立判定：
+
+- `正常`：服务可用，资源已读取。
+- `部分可用`：部分资源类型受策略限制或接口不可用。
+- `无资源`：服务可用但没有资源。
+- `未配置凭据`：该平台的 OpenRC 缺失、不可读或缺少认证变量。
+- `服务不可用`：Keystone 目录中没有该服务，或认证与服务发现失败。
+
+单个平台认证失败不会影响其他平台。Swift 未部署时对象存储显示为服务不可用。管理员 OpenRC 也不保证每个项目资源都能跨项目列出，实际结果以 Keystone 与各服务策略为准。
 
 ## 验证
 
 ```bash
 uv run --with-requirements requirements-dev.txt pytest
 curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/api/inventory
+curl http://127.0.0.1:8000/api/platforms
 ```
 
-没有配置 `OPENSTACK_OPENRC` 时，网站仍会启动，并明确显示 `not_configured`，不会崩溃。服务进程只读取资源，不执行创建、删除、更新、重启、上传、下载或其他 OpenStack 变更操作。
+清单文件缺失或格式错误时，网站仍会启动，平台列表页会显示具体原因，不会崩溃。服务进程只读取资源，不执行创建、删除、更新、重启、上传、下载或其他 OpenStack 变更操作。
 
 ## 更新与回滚
-
-更新前先看当前版本，更新后重新构建或重启：
 
 ```bash
 cd /opt/openstack-inventory
@@ -132,4 +205,4 @@ git switch main
 git pull --ff-only origin main
 ```
 
-不要使用 `git reset --hard` 覆盖本地未提交的 OpenRC 或配置文件；凭据本来就不应放在仓库内。
+不要使用 `git reset --hard` 覆盖本地未提交的配置文件；凭据和清单本来就不应放在仓库内。
